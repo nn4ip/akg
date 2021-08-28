@@ -1,3 +1,6 @@
+> This is a development branch based on AKG v1.4.0.
+
+
 - [What Is AKG?](#what-is-akg)
 - [Hardware Backends Support](#hardware-backends-support)
 - [Build](#build)
