@@ -226,6 +226,7 @@ isl::schedule ComputeSchedule::Run(isl::schedule sch) {
   }
   pass_info_.constraints_ = MakeScheduleConstraints(sch, pass_info_);
   SetIslOptions();
+  LOG(INFO) << pass_info_.constraints_.to_str();
   auto computed_sch = pass_info_.constraints_.compute_schedule();
   if (scop_info_.user_config_.GetTarget() == TARGET_CUDA) {
     computed_sch = PermuteOuterBand(computed_sch);

@@ -73,7 +73,7 @@ fi
 
 # Parse arguments
 THREAD_NUM=32
-CMAKE_ARGS=""
+CMAKE_ARGS="-DUSE_AKG_LOG=1"
 while getopts 'e:j:t:a' opt
 do
     case "${opt}" in
