@@ -13,5 +13,5 @@ rm -rf *
 if [ $# -eq 1 ]; then
   python ../test_all.py $1
 else
-  python ../test_all.py add
+  python ../test_all.py custom
 fi

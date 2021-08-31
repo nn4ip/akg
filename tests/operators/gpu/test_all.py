@@ -124,9 +124,16 @@ def bmm(poly_sch, fuzz_shape=None, mind_trick_str=''):
     test_ms_bmm((128, 64), (64, 32), 'float16', 'float16', layout1='NHDT', layout2='NHTD', layout_out='NHDT',
                 shape_bias=(1, ), add_bias=False, tensor_core=True, poly_sch=poly_sch)
 
+
 def cast(poly_sch, fuzz_shape=None, mind_trick_str=''):
     test_ms_cast((32, 32, 14, 14, 16), "float16", "float32", poly_sch=poly_sch)
     test_ms_cast((32, 32, 14, 14, 16), "float32", "float16", poly_sch=poly_sch)
+
+
+def custom(poly_sch, fuzz_shape=None, mind_trick_str=''):
+    # Auto tiling batch matmul
+    test_ms_bmm((256, 128), (64, 128), 'float16', 'float16', layout1='NHDT', layout2='NHDT', layout_out='NHDT',
+                shape_bias=(1, ), add_bias=False, tensor_core=True, poly_sch=poly_sch)
 
 
 def exp(poly_sch, fuzz_shape=None, mind_trick_str=''):
@@ -487,7 +494,8 @@ if __name__ == '__main__':
               "fused_relu_grad_bn_double_update_grad": fused_relu_grad_bn_double_update_grad,
               "fused_relu_grad": fused_relu_grad,
               "fused_bn_update_grad": fused_bn_update_grad,
-              "fused_mul_div_rsqrt_mul_isfinite_red": fused_mul_div_rsqrt_mul_isfinite_red
+              "fused_mul_div_rsqrt_mul_isfinite_red": fused_mul_div_rsqrt_mul_isfinite_red,
+              "custom": custom
               }
     all_f = list(op_map.values())
     op_map["all"] = all_f
