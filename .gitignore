@@ -1,3 +1,6 @@
+# Development testing results
+tests/dev/run/
+
 # MindSpore
 build/
 mindspore/lib

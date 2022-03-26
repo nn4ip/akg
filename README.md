@@ -1,3 +1,5 @@
+> Dev branch off commit d6d6edc (v1.6.0).
+
 - [What Is AKG?](#what-is-akg)
 - [Hardware Backends Support](#hardware-backends-support)
 - [Build](#build)
