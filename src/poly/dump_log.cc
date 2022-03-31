@@ -44,6 +44,18 @@ void DumpSchTreeToFile(std::FILE *fp, const isl::schedule &sch) {
 }
 #endif
 
+// dump schedule tree to file
+void DumpRawSchTreeToFile(std::FILE *fp, const isl::schedule &sch) {
+  isl_printer *printer = nullptr;
+
+  CHECK(sch.get());
+
+  printer = isl_printer_to_file(isl_schedule_get_ctx(sch.get()), fp);
+  printer = isl_printer_print_schedule(printer, sch.get());
+
+  static_cast<void>(isl_printer_free(printer));
+}
+
 // dump schedule tree to string
 std::string DumpSchTreeToString(const isl::schedule &sch) {
   isl_printer *printer = nullptr;
@@ -202,6 +214,22 @@ void DumpSchTreeImpl(const std::string &file_name, const isl::schedule &sch) {
 #else
     DumpSchTreeToFile(fp, sch);
 #endif
+    int status = fclose(fp);
+    if (status != 0) LOG(WARNING) << "Failed to close dump schedule tree file " << canonical_file_name;
+  } else {
+    LOG(WARNING) << "Failed to open dump schedule tree file " << canonical_file_name;
+  }
+#endif
+}
+
+// dump raw schedule tree to file
+void DumpRawSchTreeImpl(const std::string &file_name, const isl::schedule &sch) {
+#if DUMP_IR
+  std::string canonical_file_name = FilePathCanonicalize(file_name, false);
+  if (!CreateFileIfNotExist(canonical_file_name)) return;
+  FILE *fp = fopen(canonical_file_name.c_str(), "w");
+  if (fp != nullptr) {
+    DumpRawSchTreeToFile(fp, sch);
     int status = fclose(fp);
     if (status != 0) LOG(WARNING) << "Failed to close dump schedule tree file " << canonical_file_name;
   } else {
@@ -502,6 +530,9 @@ void ScopInfo::DumpSchTree(const std::string &file_name, const isl::schedule &sc
 #if DUMP_IR
     DumpSchTreeImpl(CreateDumpDir(final_file_name.str()), sch_dump);
     dump_schtree_count++;
+#if DUMP_RAW_SCH_TREE
+    DumpRawSchTreeImpl(CreateDumpDir("Raw_" + final_file_name.str()), sch_dump);
+#endif
 #endif
 
 #if DUMP_SCOP_DATA
