@@ -20,7 +20,7 @@ OUTPUT_PATH="${AKG_DIR}/output"
 usage()
 {
     echo "Usage:"
-    echo "bash build.sh [-e cpu|gpu|ascend] [-j[n]] [-t on|off] [-o] [-u]"
+    echo "bash build.sh [-e cpu|gpu|ascend] [-j[n]] [-t on|off] [-o] [-u] [-l]"
     echo ""
     echo "Options:"
     echo "    -e Hardware environment: cpu, gpu or ascend"
@@ -28,6 +28,7 @@ usage()
     echo "    -t Unit test: on or off (Default: off)"
     echo "    -o Output .o file directory"
     echo "    -u Enable auto tune"
+    echo "    -l Enable detailed logging"
 }
 
 mk_new_dir()
@@ -72,10 +73,10 @@ if [ ! -n "$1" ]; then
 fi
 
 # Parse arguments
-THREAD_NUM=32
+THREAD_NUM=8
 SIMD_SET=off
 CMAKE_ARGS=""
-while getopts 'e:j:u:t:o' opt
+while getopts 'e:j:u:t:o:l' opt
 do
     case "${opt}" in
         e)
@@ -100,6 +101,9 @@ do
             ;;
         u)
             CMAKE_ARGS="${CMAKE_ARGS} -DUSE_AUTO_TUNE=1"
+            ;;
+        l)
+            CMAKE_ARGS="${CMAKE_ARGS} -DUSE_AKG_LOG=ON"
             ;;
         o)
             arch_info=`arch | tr '[A-Z]' '[a-z]'`
