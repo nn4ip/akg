@@ -44,7 +44,7 @@ from akg.utils import format_transform as ft_util
 from akg.utils import custom_tiling as ct_util
 from akg.utils import validation_check as vc_util
 from akg.utils.dsl_create import TensorUtils
-from akg.utils.util import parse_kwargs
+from akg.utils.util import parse_kwargs, get_lower_ir
 from akg.backend.parsing_profiling_data import HWTSLogParser
 from akg.backend.parsing_profiling_data import validate_and_normalize_path
 from akg.backend import aic_model
@@ -1178,6 +1178,7 @@ def op_build(op_func, input_shapes, input_types, op_attrs=None, kernel_name="",
                               dump_ir, dump_code, tuning)
 
     s = _create_schedule(output)
+    get_lower_ir(s)
     if compute_func is not None:
         compute_func(s)
         polyhedral = False

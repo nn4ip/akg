@@ -62,7 +62,7 @@ from .build_module import build, lower, build_config
 from .tag import tag_scope
 
 # Contrib initializers
-from .contrib import rocm as _rocm, nvcc as _nvcc, sdaccel as _sdaccel
+from .contrib import rocm as _rocm, nvcc as _nvcc, sdaccel as _sdaccel, util as _util
 
 # Clean subprocesses when TVM is interrupted
 def tvm_excepthook(exctype, value, trbk):

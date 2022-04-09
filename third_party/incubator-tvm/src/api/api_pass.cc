@@ -123,6 +123,18 @@ TVM_REGISTER_API("ir_pass.PostOrderVisit")
       });
   });
 
+TVM_REGISTER_API("ir_pass._PrePostOrderVisit")
+.set_body([](TVMArgs args, TVMRetValue *ret) {
+    Stmt stmt = args[0];
+    PackedFunc f = args[1];
+    PackedFunc e = args[2];
+    ir::PrePostOrderVisit(stmt, [f](const NodeRef& n) {
+      f(n);
+    }, [e](const NodeRef& n) {
+      e(n);
+    });
+  });
+
 TVM_REGISTER_API("ir_pass.LowerStorageAccess")
 .set_body([](TVMArgs args, TVMRetValue *ret) {
   LoweredFunc f = args[0];

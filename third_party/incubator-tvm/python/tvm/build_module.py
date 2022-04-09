@@ -24,6 +24,7 @@ LoweredFunc and compiled Module.
 
 from __future__ import absolute_import as _abs
 import warnings
+import akg
 
 from ._ffi.function import Function
 from ._ffi.node import NodeBase, register_node
@@ -338,6 +339,52 @@ def form_body(sch):
     stmt = ir_pass.InjectPrefetch(stmt)
     return stmt
 
+def dump_stmt(stmt):
+    stack = []
+    ast_node = []
+    ast_edge = []
+    count = [0]
+
+    def pre_func(stmt):
+        node_idx = count[0]
+        count[0] += 1
+
+        ast_node.append([node_idx, stmt])
+        if len(stack):
+            ast_edge.append([stack[-1], node_idx])
+
+        stack.append(node_idx)
+
+    def post_func(stmt):
+        del stack[-1]
+
+    akg.tvm.ir_pass._PrePostOrderVisit(stmt, pre_func, post_func)
+
+    with open("graph.txt", "w") as f:
+        f.write("digraph {\n")
+        f.write("    node [shape=matrix]\n")
+        for node in ast_node:
+            ast_type = type(node[1])
+            ast_str = str(node[1]).replace("\n", "\\l").replace("\\n", "\\l")
+            f.write("    node%d" % (node[0]))
+            f.write("[label=\"%s\n%s\"]" % (ast_type, ast_str))
+            f.write(";\n")
+        for edge in ast_edge:
+            f.write("    node%d -> node%d;\n" % (edge[0], edge[1]))
+        f.write("}\n")
+    
+    with open("graph0.txt", "w") as f:
+        f.write("digraph {\n")
+        f.write("    node [shape=matrix]\n")
+        for node in ast_node:
+            ast_type = type(node[1])
+            ast_str = str(node[1]).replace("\n", "\\l").replace("\\n", "\\l")
+            f.write("    node%d" % (node[0]))
+            f.write("[label=\"%s\"]" % (ast_type))
+            f.write(";\n")
+        for edge in ast_edge:
+            f.write("    node%d -> node%d;\n" % (edge[0], edge[1]))
+        f.write("}\n")
 
 def lower(sch,
           args,
@@ -395,6 +442,9 @@ def lower(sch,
     stmt = ir_pass.RewriteForTensorCore(stmt, sch, binds)
     stmt = ir_pass.StorageFlatten(stmt, binds, 64, cfg.instrument_bound_checkers)
     stmt = ir_pass.CanonicalSimplify(stmt)
+
+    dump_stmt(stmt)
+
     for f in lower_phase1:
         stmt = f(stmt)
 

@@ -45,6 +45,30 @@ void PostOrderVisit(const NodeRef& node, std::function<void(const NodeRef&)> fvi
   IRApplyVisit(fvisit).Visit(node);
 }
 
+class IRPrePostOrderVisitor : public IRVisitor {
+ public:
+  explicit IRPrePostOrderVisitor(std::function<void(const NodeRef&)> f,
+                                 std::function<void(const NodeRef&)> e) : f_(f), e_(e) {}
+
+  void Visit(const NodeRef& node) final {
+    if (visited_.count(node.get()) != 0) return;
+    visited_.insert(node.get());
+    f_(node);
+    IRVisitor::Visit(node);
+    e_(node);
+  }
+
+ private:
+  std::function<void(const NodeRef&)> f_, e_;
+  std::unordered_set<const Node*> visited_;
+};
+
+void PrePostOrderVisit(const NodeRef& node,
+                       std::function<void(const NodeRef&)> fvisit,
+                       std::function<void(const NodeRef&)> evisit) {
+  IRPrePostOrderVisitor(fvisit, evisit).Visit(node);
+}
+
 IRVisitor::FVisit& IRVisitor::vtable() {  // NOLINT(*)
   static FVisit inst; return inst;
 }
