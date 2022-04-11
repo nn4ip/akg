@@ -1367,7 +1367,9 @@ class ScopInfo {
   // dump tools
   int dump_schtree_count = 0;
   void DumpSchTree(const std::string &file_name, const isl::schedule &sch);
+  void DumpJscop(const std::string &file_name, const isl::schedule &sch);
   bool DumpScopData(const std::string &file_name);
+  bool DumpJscopData(const std::string &file_name, const isl::schedule &sch);
   void DumpScopDataAdvanced(std::ofstream &of);
   void DumpTransform(const std::string &file_name, PassInfo &pass_info);
   std::string AddDumpDir(const std::string &file_name);

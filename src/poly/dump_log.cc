@@ -522,6 +522,297 @@ bool ScopInfo::DumpScopData(const std::string &file_name) {
   return true;
 }
 
+bool ScopInfo::DumpJscopData(const std::string &file_name, const isl::schedule &sch) {
+  std::string canonical_log_name = file_name + ".jscop";
+  if (!CreateFileIfNotExist(canonical_log_name)) return false;
+  std::ofstream of;
+  of.open(canonical_log_name, std::ios::out);
+  if (!of.is_open()) return false;
+
+  /* some globally used data */
+  std::set<std::string> params;
+  std::string params_str;
+
+  struct Stmt {
+    std::string name;
+    std::unordered_map<std::string, int> param_upper, param_lower;
+    isl::map_list reads, writes;
+    std::vector<int> ris, wis;
+
+    /* extract (indices of) read and write accesses of this statement into ris and wis */
+    void init_ris() {
+      for (unsigned i = 0; i < reads.size(); ++i) {
+        if (reads.at(i).space().domain().to_str().find(name) != std::string::npos) {
+          ris.push_back(i);
+        }
+      }
+    }
+    void init_wis() {
+      for (unsigned i = 0; i < writes.size(); ++i) {
+        if (writes.at(i).space().domain().to_str().find(name) != std::string::npos) {
+          wis.push_back(i);
+        }
+      }
+    }
+
+    /* iterate over reads or writes and extract necessary information */
+    void iterate_accesses(bool is_writes) {
+      for (const int & i : (is_writes ? wis : ris)) {
+        std::string domain = (is_writes ? writes : reads).at(i).domain().to_str();
+        domain = domain.substr(domain.find(":") + 1);
+        domain.pop_back();
+        std::size_t p;
+        while ((p = domain.find("and")) != std::string::npos) {
+          domain[p] = ',';
+          domain[p + 1] = ' ';
+          domain[p + 2] = ' ';
+        }
+        std::string domain_trimmed;
+        for (const char & c : domain) {
+          if (c != ' ') {
+            domain_trimmed.push_back(c);
+          }
+        }
+        std::istringstream ss(domain_trimmed);
+        std::string bound;
+        while (std::getline(ss, bound, ',')) {
+          std::string param;
+          for (p = 0; bound[p] != '='; ++p);
+          for (p = p + 1; bound[p] != '<'; ++p) {
+            param.push_back(bound[p]);
+          }
+          int lower = std::stoi(bound.substr(0, bound.find_first_of("<")));
+          int upper = std::stoi(bound.substr(bound.find_last_of("=") + 1));
+          if (param_lower.find(param) == param_lower.end()) {
+            param_lower.insert({param, lower});
+          } else if (param_lower[param] > lower) {
+            param_lower[param] = lower;
+          }
+          if (param_upper.find(param) == param_upper.end()) {
+            param_upper.insert({param, upper});
+          } else if (param_upper[param] < upper) {
+            param_upper[param] = upper;
+          }
+        }
+      }
+    }
+  };
+  std::vector<Stmt> stmts;
+
+  /* preprocessing phase: iterate over each statement and collect information */
+  {
+    /* collect names of params */
+    for (const auto &stmt : analysis_result_.GetOperatorDomainMap()) {
+      std::string raw_str = stmt.second.param_space.to_str();
+      std::size_t p = raw_str.find_first_of("["), q = raw_str.find_first_of("]");
+      raw_str = raw_str.substr(p + 1, q - p - 1);
+      std::istringstream ss(raw_str);
+      std::string param;
+      while (std::getline(ss, param, ',')) {
+        if (param[0] == ' ') {
+          param = param.substr(1);
+        }
+        params.insert(param);
+      }
+    }
+
+    /* pre-calculate params_str */
+    // params_str.push_back('[');
+    // for (auto it = params.begin(); it != params.end(); ++it) {
+    //   if (it != params.begin()) {
+    //     params_str = params_str + ", ";
+    //   }
+    //   params_str = params_str + *it + "_p";
+    // }
+    // params_str.push_back(']');
+
+    /* no params */
+    params_str = "[]";
+
+    /* pre-calculate data for each statement */
+    for (const auto &stmt : analysis_result_.GetStatementMap()) {
+      Stmt st;
+      st.name = stmt.first.to_str();
+      st.reads = analysis_result_.GetReads().map_list();
+      st.writes = analysis_result_.GetWrites().map_list();
+      st.init_ris();
+      st.init_wis();
+      st.iterate_accesses(false);
+      st.iterate_accesses(true);
+      stmts.emplace_back(std::move(st));
+    }
+  }
+
+  of << "{" << std::endl;
+
+  /* context */
+  {
+    of << "\t" << "\"context\" : \"" << params_str << " -> {  : ";
+    
+    // no params
+    // for (auto it = params.begin(); it != params.end(); it++) {
+    //   if (it != params.begin()) {
+    //     of << " and ";
+    //   }
+    //   of << "-2147483648 <= " << *it + "_p" << " <= 2147483647";
+    // }
+
+    of << " }\"," << std::endl;
+  }
+  
+  /* name */
+  {
+    of << "\t" << "\"name\" : \"%entry.split---%for.end40\"," << std::endl;
+  }
+  
+  /* statements */
+  {
+    of << "\t" << "\"statements\" : [" << std::endl;
+
+    for (auto st = stmts.begin(); st != stmts.end(); ++st) {
+      
+      /* print head formatting */
+      if (st != stmts.begin()) {
+        of << "," << std::endl;
+      }
+      of << "\t\t" << "{" << std::endl;
+
+      /* accesses */
+      {
+        of << "\t\t\t" << "\"accesses\" : [" << std::endl;
+
+        int total_rws = st->ris.size() + st->wis.size();
+
+        /* print read accesses in specified format */
+        for (const int &i : st->ris) {
+          std::string read = st->reads.at(i).flatten().to_str();
+          read = read.substr(2, read.find(":") - 3);
+          read = st->name + read;
+          std::size_t p, q;
+          while ((q = read.find("=")) != std::string::npos) {
+            q++;
+            p = q;
+            while (read[p - 1] != ',' && read[p - 1] != '[') {
+              p--;
+            }
+            if (read[p - 1] == '[') {
+              q++;
+            }
+            read.erase(p, q - p); // erase [p, q)
+          }
+          read = params_str + " -> { " + read + " }";
+
+          of << "\t\t\t\t" << "{" << std::endl;
+          of << "\t\t\t\t\t" << "\"kind\" : \"read\"," << std::endl;
+          of << "\t\t\t\t\t" << "\"relation\" : \"" << read << "\"" << std::endl;
+          of << "\t\t\t\t" << (i < total_rws - 1 ? "}," : "}") << std::endl;
+        }
+
+        /* print write accesses in specified format */
+        for (const int &i : st->wis) {
+          std::string write = st->writes.at(i).flatten().to_str();
+          write = write.substr(2, write.find(":") - 3);
+          write = st->name + write;
+          std::size_t p, q;
+          while ((q = write.find("=")) != std::string::npos) {
+            q++;
+            p = q;
+            while (write[p - 1] != ',' && write[p - 1] != '[') {
+              p--;
+            }
+            if (write[p - 1] == '[') {
+              q++;
+            }
+            write.erase(p, q - p); // erase [p, q)
+          }
+          write = params_str + " -> { " + write + " }";
+
+          of << "\t\t\t\t" << "{" << std::endl;
+          of << "\t\t\t\t\t" << "\"kind\" : \"write\"," << std::endl;
+          of << "\t\t\t\t\t" << "\"relation\" : \"" << write << "\"" << std::endl;
+          of << "\t\t\t\t" << (i + static_cast<int>(st->ris.size()) < total_rws - 1 ? "}," : "}") << std::endl;
+        }
+
+        of << "\t\t\t" << "]," << std::endl;
+      }
+
+      /* domain */
+      {
+        of << "\t\t\t" << "\"domain\" : \"" << params_str << " -> { ";
+
+        std::string stmt_full_name;
+        if (!st->ris.empty()) {
+          stmt_full_name = st->reads.at(st->ris[0]).space().domain().to_str();
+        } else {
+          stmt_full_name = st->writes.at(st->wis[0]).space().domain().to_str();
+        }
+        stmt_full_name = stmt_full_name.substr(3, stmt_full_name.find("]") - 2);
+        of << stmt_full_name << " : ";
+
+        /* extract params of this statement */
+        std::vector<std::string> stmt_params;
+        for (std::size_t p = stmt_full_name.find("[") + 1; p < stmt_full_name.size();) {
+          /* no params */
+          if (stmt_full_name[p] == ']') {
+            break;
+          }
+
+          std::size_t q = p + 1;
+          /* move q to ',' or ']' */
+          while (stmt_full_name[q] != ',' && stmt_full_name[q] != ']') {
+            ++q;
+          }
+          stmt_params.push_back(stmt_full_name.substr(p, q - p));
+
+          /* reached the end */
+          if (stmt_full_name[q] == ']') {
+            break;
+          }
+
+          /* move p to next non-blank character */
+          for (p = q + 1; stmt_full_name[p] == ' '; ++p);
+        }
+
+        for (auto it = stmt_params.begin(); it != stmt_params.end(); ++it) {
+          if (it != stmt_params.begin()) {
+            of << "and ";
+          }
+          of << st->param_lower[*it] << " <= " << *it << " < " << st->param_upper[*it] + 1 << " ";
+        }
+        
+        of << "}\"," << std::endl;
+      }
+
+      /* name */
+      {
+        of << "\t\t\t" << "\"name\" : \"" << st->name << "\"," << std::endl;
+      }
+
+      /* schedule */
+      {
+        isl::map_list sch_list = sch.map().map_list();
+        for (unsigned int i = 0; i < sch_list.size(); ++i) {
+          if (sch_list.at(i).to_str().find(st->name) != std::string::npos) {
+            of << "\t\t\t" << "\"schedule\" : \"" << params_str << " -> ";
+            of << sch_list.at(i);
+            of << "\"" << std::endl;
+            break;
+          }
+        }
+      }
+
+      of << "\t\t" << "}";
+    }
+    of << std::endl;
+    of << "\t" << "]" << std::endl;
+  }
+
+  of << "}";
+
+  of.close();
+  return true;
+}
+
 void ScopInfo::DumpSchTree(const std::string &file_name, const isl::schedule &sch_dump) {
   std::stringstream final_file_name;
   final_file_name << std::setw(2) << std::setfill('0') << dump_schtree_count << "_" << file_name
@@ -542,6 +833,15 @@ void ScopInfo::DumpSchTree(const std::string &file_name, const isl::schedule &sc
     static_cast<void>(DumpScopData(CreateDumpDir("scop")));
 #endif
 #endif
+  }
+}
+
+void ScopInfo::DumpJscop(const std::string &file_name, const isl::schedule &sch_dump) {
+  std::stringstream final_file_name;
+  final_file_name << file_name << std::string(mmu_info_.IsSpecGemm() ? "_specgemm" : "");
+  if (user_config_.GetDumpPassIr()) {
+    static_cast<void>(DumpJscopData(CreateDumpDir(final_file_name.str()), sch_dump));
+    // DumpRawSchTreeImpl(CreateDumpDir("Raw_" + final_file_name.str()), sch_dump);
   }
 }
 

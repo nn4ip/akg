@@ -30,7 +30,7 @@ namespace poly {
 #define PRETTY_PRINT_IR true
 #define DUMP_RAW_SCH_TREE true
 #define DUMP_SCOP_DATA true
-#define DUMP_SCOP_DATA_PER_PASS false
+#define DUMP_SCOP_DATA_PER_PASS true
 #define DUMP_IN_CURRENT_DIR false
 
 #define PRINT_SCHEDULE_INFO false

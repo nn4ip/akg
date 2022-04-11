@@ -40,6 +40,8 @@ isl::schedule SchedulePassMgr::Run(const isl::schedule &sch, const std::vector<s
   std::chrono::high_resolution_clock::time_point timer_start;
   scop_info_.ClearTimeRecords();
 
+  scop_info_.DumpJscop("\%entry.split---\%for.end40", sch);
+
   auto final_sch = sch;
   auto replace_sch = sch;
   need_restart_ = false;
