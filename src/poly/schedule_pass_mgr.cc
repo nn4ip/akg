@@ -70,6 +70,8 @@ isl::schedule SchedulePassMgr::Run(const isl::schedule &sch, const std::vector<s
 
     LOG(INFO) << time_log.str();
     scop_info_.RecordTime(time_log.str());
+    if (name == "InitSchedule")
+      scop_info_.DumpJscop("\%entry.split---\%for.end40", sch);
 
     scop_info_.DumpSchTree(pass->GetPassName(), final_sch);
 

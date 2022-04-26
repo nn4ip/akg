@@ -62,6 +62,51 @@ std::string DumpSchTreeToString(const isl::schedule &sch) {
   return str;
 }
 
+void AnalysisResult::FormatAccess(const std::string &kind, const isl::union_map &accesses, std::vector<JscopStmt> &stmts) {
+  const isl::map_list &list = accesses.get_map_list();
+  const unsigned int size = list.size();
+  for (unsigned int i = 0; i < size; ++i) {
+    const isl::set &statement = list.get_at(i).domain().unwrap().domain();
+    const std::string &statement_name = statement.get_tuple_id().get_name();
+    int cnt = 0;
+    for (const auto &stmt : stmts) {
+      if (stmt.name == statement_name) {
+        break;
+      }
+      cnt++;
+    }
+    std::string src = list.get_at(i).flatten_domain().set_tuple_name(isl_dim_in, statement_name).to_str();
+    int src_idx = 0;
+    std::stringstream dst;
+    bool in_acc = false;
+    while (src[src_idx] != '\0') {
+      if (src[src_idx] == '[') {
+        if (in_acc) {
+          // append the second [
+          dst << src[src_idx++];
+          while (src[src_idx] != ']') {
+            while (src[src_idx] != '=') {
+              src_idx++;
+            }
+            src_idx += 2;
+            while (src[src_idx] != ',' && src[src_idx] != ']') {
+              dst << src[src_idx++];
+            }
+            if (src[src_idx] != ']')
+              dst << ", ";
+          }
+          dst << src[src_idx] << " }";
+          break;
+        } else {
+          in_acc = true;
+        }
+      }
+      dst << src[src_idx++];
+    }
+    stmts[cnt].accesses.push_back(Access(kind, "[] -> " + dst.str()));
+  }
+}
+
 /*
  * Type 1: "{ a; b; c }" format to "{ a;" "b;" "c }"
  * Type 2: "[ a, b, c ]" format to "[ a," "b," "c ]"
@@ -280,6 +325,61 @@ void CreateDirIfNotExist(const std::string &file_name) {
   }
 }
 
+void AnalysisResult::GetJscopDataBasics(std::vector<JscopStmt> &stmts, const isl::schedule &sch) {
+  for (const auto &stmt : GetStatementMap()) {
+    JscopStmt jscopstmt;
+    jscopstmt.name = stmt.first.get_name();
+    stmts.push_back(jscopstmt);
+  }
+
+  // get domain
+  const std::string domains = sch.get_domain().to_str();
+  for (unsigned int idx = 0; idx < domains.size();) {
+    std::stringstream dst;
+    dst << (idx == 0 ? domains[idx] : '{');
+    idx++;
+    dst << domains[idx++];
+    int name_idx = 0;
+    while (domains[idx + name_idx] != '[') {
+      name_idx++;
+    }
+    int cnt = 0;
+    std::string name = domains.substr(idx, name_idx);
+    for (const auto &stmt : stmts) {
+      if (stmt.name == name) {
+        break;
+      }
+      cnt++;
+    }
+    while (domains[idx] != ';' && domains[idx] != '\0') {
+      dst << domains[idx++];
+    }
+    if (domains[idx] == ';') {
+      dst << " }";
+    }
+    stmts[cnt].domain = "[] -> " + dst.str();
+  }
+
+  // get schedules
+  const isl::map_list &sch_list = sch.map().get_map_list();
+  const unsigned int size = sch_list.size();
+  for (unsigned int i = 0; i < size; ++i) {
+    const isl::map &sch = sch_list.get_at(i);
+    const std::string &name = sch.domain().get_tuple_id().get_name();
+    int cnt = 0;
+    for (const auto &stmt : stmts) {
+      if (stmt.name == name) {
+        break;
+      }
+      cnt++;
+    }
+    stmts[cnt].schedule = "[] -> " + sch.to_str();
+  }
+  
+  FormatAccess("read", GetReads(), stmts);
+  FormatAccess("write", GetWrites(), stmts);
+}
+
 void AnalysisResult::DumpScopDataBasics(std::ofstream &of) {
   PrintHeader(of, "statements");
   for (const auto &stmt : GetStatementMap()) {
@@ -490,6 +590,67 @@ bool ScopInfo::DumpScopData(const std::string &file_name) {
 
   of.close();
   return true;
+}
+
+bool ScopInfo::DumpJscopData(const std::string &file_name, const isl::schedule &sch) {
+  std::string canonical_log_name = file_name + ".jscop";
+  if (!CreateFileIfNotExist(canonical_log_name)) return false;
+  std::ofstream of;
+  of.open(canonical_log_name, std::ios::out);
+  if (!of.is_open()) return false;
+
+  std::vector<JscopStmt> stmts;
+
+  analysis_result_.GetJscopDataBasics(stmts, sch);
+
+  of << "{" << std::endl;
+
+  // context
+
+  of << "\t" << "\"context\" : \"[] -> { : }\"," << std::endl;
+
+  // name
+  of << "\t" << "\"name\" : \"%entry.split---%for.end40\"," << std::endl;
+
+  // statement
+  of << "\t" << "\"statements\" : [" << std::endl;
+  for (unsigned int i = 0; i < stmts.size(); ++i) {
+    of << "\t\t{" << std::endl;
+    of << "\t\t\t" << "\"accesses\" : [" << std::endl;
+    for (unsigned int j = 0; j < stmts[i].accesses.size(); ++j) {
+      of << "\t\t\t\t{" << std::endl;
+      of << "\t\t\t\t\t" << "\"kind\" : \"" << stmts[i].accesses[j].kind << "\"," << std::endl;
+      of << "\t\t\t\t\t" << "\"relation\" : \"" << stmts[i].accesses[j].relation << "\"" << std::endl;
+      if (j != stmts[i].accesses.size() - 1) {
+        of << "\t\t\t\t}," << std::endl;
+      } else {
+        of << "\t\t\t\t}" << std::endl;
+      }
+    }
+    of << "\t\t\t]," << std::endl;
+    of << "\t\t\t" << "\"domain\" : \"" << stmts[i].domain << "\"," << std::endl;
+    of << "\t\t\t" << "\"name\" : \"" << stmts[i].name << "\"," << std::endl;
+    of << "\t\t\t" << "\"schedule\" : \"" << stmts[i].schedule << "\"" << std::endl; 
+    if (i != stmts.size() - 1) {
+      of << "\t\t}," << std::endl;
+    } else {
+      of << "\t\t}" << std::endl;
+    }
+  }
+  
+  of << "\t]" << std::endl;
+  of << "}" << std::endl;
+
+  of.close();
+  return true;
+}
+
+void ScopInfo::DumpJscop(const std::string &file_name, const isl::schedule &sch_dump) {
+  std::stringstream final_file_name;
+  final_file_name << file_name << std::string(mmu_info_.IsSpecGemm() ? "_specgemm" : "");
+  if (user_config_.GetDumpPassIr()) {
+    static_cast<void>(DumpJscopData(CreateDumpDir(final_file_name.str()), sch_dump));
+  }
 }
 
 void ScopInfo::DumpSchTree(const std::string &file_name, const isl::schedule &sch_dump) {

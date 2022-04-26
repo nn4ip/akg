@@ -40,6 +40,18 @@ constexpr auto kGemmIterNamePrefix = "ee";
 
 using VarNames = std::vector<std::string>;
 
+struct Access {
+  Access(const std::string kind, const std::string relation) : kind(kind), relation(relation) {}
+  std::string kind;
+  std::string relation;
+};
+
+struct JscopStmt {
+  std::string name;
+  std::string domain;
+  std::string schedule;
+  std::vector<Access> accesses;
+};
 struct ParamInfo {
   std::string type_key;
   Expr key;
@@ -1090,6 +1102,8 @@ class AnalysisResult {
 
   // dump all data
   void DumpScopDataBasics(std::ofstream &of);
+  void GetJscopDataBasics(std::vector<JscopStmt> &stmts, const isl::schedule &sch);
+  void FormatAccess(const std::string &kind, const isl::union_map &accesses, std::vector<JscopStmt> &stmts);
 
   int CountBufferDefInfo(const isl::id &tensor_id) const;
   const std::vector<BufferDefInfo> &BufferDefInfos() const { return buffer_def_infos_; }
@@ -1392,7 +1406,9 @@ class ScopInfo {
   // dump tools
   int dump_schtree_count = 0;
   void DumpSchTree(const std::string &file_name, const isl::schedule &sch);
+  void DumpJscop(const std::string &file_name, const isl::schedule &sch);
   bool DumpScopData(const std::string &file_name);
+  bool DumpJscopData(const std::string &file_name, const isl::schedule &sch);
   void DumpScopDataAdvanced(std::ofstream &of);
   void DumpTransform(const std::string &file_name, PassInfo &pass_info);
   std::string AddDumpDir(const std::string &file_name);

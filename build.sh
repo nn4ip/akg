@@ -74,7 +74,6 @@ fi
 # Parse arguments
 THREAD_NUM=32
 SIMD_SET=off
-CMAKE_ARGS=""
 while getopts 'e:j:u:t:o' opt
 do
     case "${opt}" in
