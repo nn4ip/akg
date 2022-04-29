@@ -70,7 +70,7 @@ def add_run(shape1, shape2, dtype, kernel_name="add", scale=1.0, attrs_op=None, 
                 args.append(shape1[i])
             block_dim = compute_blockdim(shape1)
             args.append(block_dim)
-        output = utils.mod_launch(mod, args, outputs=(2,), expect=expect)
+        output, cycles = utils.mod_launch(mod, args, outputs=(2,), expect=expect)
 
         if attrs.get("profiling", False):
             target_name = attrs["target"].split()[0]
@@ -78,7 +78,7 @@ def add_run(shape1, shape2, dtype, kernel_name="add", scale=1.0, attrs_op=None, 
             target_profiling(mod, *data, target=target_name, repeat_time=attrs["repeat_times"])
 
         rtol, atol = get_rtol_atol("add", dtype)
-        return (input1, input2), output, expect, compare_tensor(output, expect, rtol=rtol, atol=atol, equal_nan=True)
+        return (input1, input2), output, expect, compare_tensor(output, expect, rtol=rtol, atol=atol, equal_nan=True), cycles
 
 
 def gen_data(shape1, shape2, dtype, scale):

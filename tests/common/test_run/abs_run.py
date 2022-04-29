@@ -37,7 +37,7 @@ def abs_run(shape, dtype, attrs={}):
     else:
         mod = utils.op_build_test(Abs, input_shape, input_dtype, kernel_name='abs', attrs=attrs)
         exp_output, inputs, output = gen_date(dtype, shape)
-        acu_output = utils.mod_launch(mod, (inputs, output), expect=exp_output)
+        acu_output, cycles = utils.mod_launch(mod, (inputs, output), expect=exp_output)
 
         # compare result
         rtol, atol = get_rtol_atol("abs", dtype)
@@ -49,7 +49,7 @@ def abs_run(shape, dtype, attrs={}):
             data, output = to_tvm_nd_array([inputs, output], akg.tvm.context(target_name, 0))
             target_profiling(mod, data, output, target=target_name, repeat_time=attrs["repeat_times"])
 
-        return inputs, acu_output, exp_output, TestCase_Result
+        return inputs, acu_output, exp_output, TestCase_Result, cycles
 
 def gen_date(dtype, shape):
     inputs = np.random.uniform(-1, 0, size=shape).astype(dtype)

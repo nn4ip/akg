@@ -60,16 +60,17 @@ isl::schedule SchedulePassMgr::Run(const isl::schedule &sch, const std::vector<s
         final_sch = replace_sch;
         LOG(WARNING) << (pass->GetPassName() + " input schedule had been replaced  !!!");
       }
+    } else {
+      std::stringstream time_log;
+      TIMER_START;
+      final_sch = pass->Run(final_sch);
+      time_log << "[ Polyhedral exec time" << (scop_info_.mmu_info_.IsSpecGemm() ? "_specgemm" : "") << " ], "
+              << pass->GetPassName() << " spent " << TIMER_DURATION << " ms";
+
+      LOG(INFO) << time_log.str();
+      scop_info_.RecordTime(time_log.str());
     }
 
-    std::stringstream time_log;
-    TIMER_START;
-    final_sch = pass->Run(final_sch);
-    time_log << "[ Polyhedral exec time" << (scop_info_.mmu_info_.IsSpecGemm() ? "_specgemm" : "") << " ], "
-             << pass->GetPassName() << " spent " << TIMER_DURATION << " ms";
-
-    LOG(INFO) << time_log.str();
-    scop_info_.RecordTime(time_log.str());
     if (name == "InitSchedule")
       scop_info_.DumpJscop("\%entry.split---\%for.end40", sch);
 

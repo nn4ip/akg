@@ -96,7 +96,7 @@ def batch_matmul_run(shape1, shape2, dtype, out_dtype="float32", layout1="NHDT",
     lhs, rhs, bias, output, expect = gen_data(
         shape1, shape2, dtype, out_dtype, layout1, layout2, layout_out, shape_bias, add_bias)
     args = (lhs, rhs, bias, output)
-    output = utils.mod_launch(mod, args, expect=expect)
+    output, cycles = utils.mod_launch(mod, args, expect=expect)
     res = np.allclose(output, expect, rtol=5e-03, atol=1.e-8)
     print("Test {}".format("Pass" if res else "Fail"))
     target_name = default_attrs["target"].split()[0]
@@ -111,4 +111,4 @@ def batch_matmul_run(shape1, shape2, dtype, out_dtype="float32", layout1="NHDT",
     if attrs["profiling"]:
         args = to_tvm_nd_array(args, akg.tvm.context(target_name, 0))
         target_profiling(mod, *args, target = target_name, repeat_time = attrs["repeat_times"])
-    return (lhs, rhs, bias), output, expect, res
+    return (lhs, rhs, bias), output, expect, res, cycles

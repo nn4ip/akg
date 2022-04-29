@@ -583,7 +583,8 @@ def mod_launch_default(mod, args, outputs=(-1,), target=CUDA, tuning=False, devi
     mod(*mod_args)
     out_list = [mod_args[len(args) + i if i < 0 else i].asnumpy() for i in outputs]
     if not tuning:
-        return out_list[0] if len(out_list) == 1 else tuple(out_list)
+        cycles = get_cycles(mod, *mod_args, target=target, device_id=device_id, repeat_time=repeat_time)
+        return out_list[0] if len(out_list) == 1 else tuple(out_list), {'run_time': cycles}
     else:
         cycles = get_cycles(mod, *mod_args, target=target, device_id=device_id, repeat_time=repeat_time)
         return out_list[0] if len(out_list) == 1 else tuple(out_list), {'run_time': cycles}
@@ -754,6 +755,8 @@ def op_build_test(op_func, input_shapes, input_types, op_attrs=None, kernel_name
     else:
         kernel_name = gen_kernel_name(input_shapes, input_types, op_attrs, kernel_name, attrs)
     logging.debug('kernel_name---------- %s', str(kernel_name))
+    with open("kernel_name", "w") as file:
+        file.write('{}\n'.format(str(kernel_name)))
     mod = op_build(op_func, input_shapes, input_types, op_attrs, kernel_name,
                    attrs, log_code, dump_ir, dump_code,
                    polyhedral, tuning)

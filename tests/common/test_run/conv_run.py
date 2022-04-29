@@ -100,7 +100,7 @@ def conv_run(shape_data, shape_weight, stride=(1,1), padding=(0,0,0,0), dilation
     data, weight, output, expect = gen_data(
         shape_data, shape_weight, layout, stride, padding, dilation, dtype, out_dtype)
     args = (data, weight, output)
-    output = utils.mod_launch(mod, args, expect=expect)
+    output, cycles = utils.mod_launch(mod, args, expect=expect)
     rtol = 1e-3 if dtype == "float16" else 1e-4
     atol = 1e-3 if dtype == "float16" else 1e-4
     res = np.allclose(output, expect, rtol=rtol, atol=atol)
@@ -118,4 +118,4 @@ def conv_run(shape_data, shape_weight, stride=(1,1), padding=(0,0,0,0), dilation
         data, weight, output = to_tvm_nd_array(
             [data, weight, output], akg.tvm.context(target_name, 0))
         target_profiling(mod, data, weight, output, target=target_name, repeat_time=attrs["repeat_times"])
-    return (data, weight), output, expect, res
+    return (data, weight), output, expect, res, cycles
