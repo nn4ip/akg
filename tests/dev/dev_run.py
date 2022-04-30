@@ -22,7 +22,7 @@ if __name__ == '__main__':
     attrs["profiling"] = False
     attrs["repeat_times"] = 1000
     
-    conv_run((32, 64, 56, 56), (64, 64, 3, 3), (1, 1), (1, 1, 1, 1), (1, 1), "float32", "float32", "NCHW", attrs=attrs)
-    # conv_run((16, 4, 4, 16), (16, 3, 3, 16), (1, 1), (0, 0, 0, 0), (1, 1), "float16", "float16", "NHWC", attrs=attrs)
+    # conv_run((32, 64, 56, 56), (64, 64, 3, 3), (1, 1), (1, 1, 1, 1), (1, 1), "float32", "float32", "NCHW", attrs=attrs)
+    conv_run((16, 4, 4, 16), (16, 3, 3, 16), (1, 1), (0, 0, 0, 0), (1, 1), "float16", "float16", "NHWC", attrs=attrs)
     # conv_run((16, 4, 300, 300), (16, 4, 3, 3), (1, 1), (0, 0, 0, 0), (1, 1), "float16", "float16", "NHWC", attrs=attrs)
     

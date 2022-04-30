@@ -88,6 +88,8 @@ do
                 # AKG requires LLVM on CPU, the optimal version is 12.xx.xx.
                 # if not found in the environment, it will find another existing version to use.
                 CMAKE_ARGS="${CMAKE_ARGS} -DUSE_LLVM=ON -DUSE_RPC=ON"
+            elif [[ "${OPTARG}" == "gpu-only" ]]; then
+                CMAKE_ARGS="${CMAKE_ARGS} -DUSE_CUDA=ON -DUSE_RPC=ON"
             else
                 echo "Unknown parameter ${OPTARG}!"
                 usage

@@ -1,5 +1,5 @@
 # Development testing results
-tests/dev/run/
+tests/dev/*/
 
 # MindSpore
 build/
